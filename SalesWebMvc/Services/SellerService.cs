@@ -36,10 +36,18 @@ namespace SalesWebMvc.Services
 
         public async Task RemoveAsync(int id)
         {
-            var obj = _context.Seller.Find(id);
-            _context.Seller.Remove(obj);
-            await _context.SaveChangesAsync();
-        }
+            await ExistSalesRecordOfThisSellerAsync(id);
+            try
+            {
+                var obj = _context.Seller.Find(id);
+                _context.Seller.Remove(obj);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException dbe)
+            {
+                throw new IntegrityException(dbe.Message);
+            }
+        } 
 
         public async Task UpdateAsync(Seller seller)
         {
@@ -56,6 +64,16 @@ namespace SalesWebMvc.Services
             catch (DbUpdateConcurrencyException dbe)
             {
                 throw new DbConcurrencyException(dbe.Message);
+            }
+        }
+
+        private async Task ExistSalesRecordOfThisSellerAsync(int id)
+        {
+            bool hasAny = await _context.SalesRecord.AnyAsync(obj => obj.Seller.Id == id);
+            if (hasAny)
+            {
+                throw new IntegrityException(
+                    "Cannot delete Seller without first deleted all reference data of Sales Record!");
             }
         }
     }
